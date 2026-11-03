@@ -1,0 +1,147 @@
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+.boot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+}
+
+.boot__inner {
+  position: relative;
+  width: min(560px, 100%);
+}
+
+.boot__log {
+  min-height: 9.6em;
+  margin: 0 0 22px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-dim);
+}
+
+.boot__log .b-title {
+  color: #fff;
+  letter-spacing: 0.18em;
+}
+
+.boot__log .b-ok {
+  color: var(--ok);
+}
+
+.boot__log .b-hi {
+  color: var(--accent);
+}
+
+.boot__log .b-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -0.2em;
+  background: var(--accent);
+  animation: boot-blink 0.8s steps(2) infinite;
+}
+
+@keyframes boot-blink {
+  50% { opacity: 0; }
+}
+
+.boot__bar {
+  position: relative;
+  height: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.boot__bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  transition: width 0.25s var(--ease-out);
+}
+
+.boot__meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+}
+
+.boot__skip {
+  animation: chip-pulse 2s ease-in-out infinite;
+}
+
+/* 退出：CRT 收束 */
+.boot.is-leaving {
+  animation: boot-out 0.75s var(--ease-in-out) forwards;
+  pointer-events: none;
+}
+
+.boot.is-leaving .boot__inner {
+  animation: boot-inner-out 0.25s ease-in forwards;
+}
+
+.boot.is-leaving::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--accent);
+  box-shadow: 0 0 24px var(--accent), 0 0 60px var(--accent);
+  animation: boot-line 0.75s var(--ease-in-out) forwards;
+}
+
+@keyframes boot-out {
+  0% { clip-path: inset(0 0 0 0); background: var(--bg); }
+  45% { clip-path: inset(49.6% 0 49.6% 0); background: var(--bg); }
+  100% { clip-path: inset(49.6% 50% 49.6% 50%); background: transparent; }
+}
+
+@keyframes boot-inner-out {
+  to { opacity: 0; transform: scaleY(0.6); }
+}
+
+@keyframes boot-line {
+  0%, 30% { opacity: 0; transform: scaleX(1); }
+  45% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(0); }
+}
+
+.boot.is-quick.is-leaving {
+  animation-duration: 0.45s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot.is-leaving {
+    animation: boot-fade 0.3s forwards;
+  }
+  .boot.is-leaving::after {
+    display: none;
+  }
+}
+
+@keyframes boot-fade {
+  to { opacity: 0; }
+}

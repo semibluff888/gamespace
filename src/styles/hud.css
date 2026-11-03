@@ -1,0 +1,394 @@
+.hud {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  padding: calc(var(--gutter) + var(--safe-top)) calc(var(--gutter) + 8px) var(--gutter);
+  pointer-events: none;
+  transition: opacity 0.6s var(--ease-out);
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+.hud--top {
+  top: 0;
+  align-items: flex-start;
+}
+
+.hud--bottom {
+  bottom: 0;
+  align-items: flex-end;
+  padding-top: 0;
+  padding-bottom: calc(var(--gutter) + var(--safe-bottom));
+}
+
+/* ---------- 品牌 ---------- */
+.hud-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.hud-brand__name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(18px, 2vw, 24px);
+  letter-spacing: 0.32em;
+  color: #fff;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.hud-brand__sub {
+  display: flex;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.hud-sep {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.hud-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+}
+
+.hud-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: chip-pulse 2.2s ease-in-out infinite;
+}
+
+/* ---------- 右上控制区 ---------- */
+.hud-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-progress {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 6px;
+  margin-right: 8px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+.hud-progress__label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+}
+
+.hud-progress__value {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+.hud-progress__value b {
+  color: #fff;
+  font-weight: 500;
+}
+
+.hud-progress__bar {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 3px;
+}
+
+.hud-progress__bar i {
+  flex: 1;
+  height: 3px;
+  min-width: 14px;
+  background: var(--line-strong);
+  transition: background 0.4s, box-shadow 0.4s;
+}
+
+.hud-progress__bar i.is-on {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.hud-progress.is-complete .hud-progress__label {
+  color: var(--gold);
+}
+
+.hud-progress.is-bump {
+  animation: hud-bump 0.6s var(--ease-out);
+}
+
+@keyframes hud-bump {
+  30% { transform: scale(1.08); color: #fff; }
+}
+
+.hud-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  border: 1px solid var(--line);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  backdrop-filter: blur(6px);
+}
+
+.hud-btn:hover {
+  color: #fff;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.hud-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hud-btn svg .i-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.hud-btn[data-action='sound'] .i-wave { display: none; }
+.hud-btn[data-action='sound'][aria-pressed='true'] .i-wave { display: inline; }
+.hud-btn[data-action='sound'][aria-pressed='true'] .i-mute { display: none; }
+.hud-btn[data-action='sound'][aria-pressed='true'] { color: var(--accent); }
+
+.hud-btn[data-action='view'] .i-map { display: none; }
+html[data-mode='list'] .hud-btn[data-action='view'] .i-map { display: inline; }
+html[data-mode='list'] .hud-btn[data-action='view'] .i-list { display: none; }
+
+/* ---------- 雷达 ---------- */
+.hud-radar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hud-radar__canvas {
+  width: 160px;
+  height: 160px;
+  cursor: pointer;
+}
+
+.hud-readout {
+  display: flex;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.hud-readout b {
+  font-weight: 400;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 操作提示 ---------- */
+.hud-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 16px;
+  max-width: 520px;
+  font-size: 12px;
+  color: var(--text-dim);
+  pointer-events: none;
+  transition: opacity 1.2s var(--ease-out);
+}
+
+.hud-hints.is-faded {
+  opacity: 0.32;
+}
+
+.hud-hints kbd {
+  margin-right: 6px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+/* 锁定星球（档案打开）时收起部分 HUD */
+html[data-state='focus'] .hud-hints,
+html[data-state='warp'] .hud {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Toast ---------- */
+.toasts {
+  position: fixed;
+  top: calc(var(--gutter) + var(--safe-top) + 64px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.toast {
+  --toast-c: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(92vw, 520px);
+  padding: 9px 16px 9px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel-strong);
+  border: 1px solid color-mix(in srgb, var(--toast-c) 45%, transparent);
+  border-left: 3px solid var(--toast-c);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), 0 0 24px color-mix(in srgb, var(--toast-c) 16%, transparent);
+  backdrop-filter: blur(10px);
+  animation: toast-in 0.45s var(--ease-out) both;
+  pointer-events: auto;
+}
+
+.toast.is-leaving {
+  animation: toast-out 0.35s ease-in both;
+}
+
+.toast__k {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: var(--toast-c);
+  white-space: nowrap;
+}
+
+.toast__v {
+  min-width: 0;
+  font-family: var(--font-display);
+}
+
+.toast__btn {
+  margin-left: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--toast-c);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--toast-c) 50%, transparent);
+  cursor: pointer;
+}
+
+.toast--gold { --toast-c: var(--gold); }
+.toast--alert { --toast-c: var(--alert); }
+.toast--ok { --toast-c: var(--ok); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); clip-path: inset(0 50% 0 50%); }
+  to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+
+/* ---------- 跃迁闪光 ---------- */
+.warp-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), #fff 0%, var(--flash-c, #6ef2ff) 38%, #03050b 100%);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 760px) {
+  .hud {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .hud-brand__sub {
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+  }
+
+  .hud-brand__sub [data-site='station'],
+  .hud-brand__sub .hud-sep {
+    display: none;
+  }
+
+  .hud-status {
+    display: none;
+  }
+
+  .hud-controls {
+    gap: 6px;
+  }
+
+  .hud-progress {
+    margin-right: 2px;
+  }
+
+  .hud-progress__label {
+    display: none;
+  }
+
+  .hud-progress__bar i {
+    min-width: 8px;
+  }
+
+  .hud-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .hud-radar__canvas {
+    width: 104px;
+    height: 104px;
+  }
+
+  .hud-readout {
+    display: none;
+  }
+
+  .hud-hints {
+    font-size: 11px;
+    gap: 4px 10px;
+    max-width: 60vw;
+  }
+}

@@ -1,0 +1,21 @@
+# 每次推送 / 提 PR 时在 GitHub 上构建一遍，确保 main 分支随时可以部署。
+# 网站本身部署在自己的 VPS 上（见 DEPLOY.md），这里不负责发布。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build

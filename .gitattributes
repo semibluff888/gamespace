@@ -1,0 +1,14 @@
+* text=auto
+
+# 要拷到 Linux 服务器上用的文件：固定 LF 换行
+*.conf text eol=lf
+*.sh   text eol=lf
+
+# Windows PowerShell 脚本（带 BOM 的 UTF-8）
+*.ps1  text eol=crlf
+
+*.webp binary
+*.jpg  binary
+*.jpeg binary
+*.png  binary
+*.woff2 binary
