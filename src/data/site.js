@@ -33,12 +33,22 @@ export const site = {
   theme: 'visible',
 
   /**
-   * 背景配乐：点右上角喇叭（或按 M）开启声音后淡入，循环播放。
-   * src 是 public/ 下的相对路径；换成你有授权的音频文件即可（建议 MP3，2～4 分钟、首尾能自然衔接）。
-   * 默认是《星际穿越》原声 Cornfield Chase（Hans Zimmer，0:34 至结尾的选段，响度已与 Orbit 对齐）；
-   * 另有原创曲「Orbit」（管风琴 + 钟表滴答，由 npm run bgm 生成）：src 改成 'audio/orbit.mp3' 即可换回。volume 为 0～1。
+   * 背景配乐：默认开启，循环播放。浏览器不允许网页自己出声，所以在访客第一次点击 / 轻点 / 按键时淡入。
+   * 访客可以点右上角喇叭（或按 M）关掉声音，点「配乐」按钮（或按 B）换曲；两项选择都记在访客的浏览器里。
+   *
+   * tracks 的第一首是新访客听到的默认曲目；只剩一首时「配乐」按钮自动隐藏。
+   *   src   public/ 下的相对路径（建议 MP3，2～4 分钟、首尾能自然衔接，响度对齐约 −14 LUFS）
+   *   title / by  配乐面板里显示的曲名与出处    volume?  单曲音量（0～1，不写用下面的 volume）
    */
-  music: { src: 'audio/bgm-cut.mp3', volume: 0.45 },
+  music: {
+    volume: 0.45,
+    tracks: [
+      // 《星际穿越》原声选段（0:34 至结尾，响度已与 Orbit 对齐）。受版权保护：版权方投诉时删掉这一项即可
+      { id: 'cornfield', title: 'Cornfield Chase', by: 'Hans Zimmer ·《星际穿越》', src: 'audio/bgm-cut.mp3' },
+      // 原创：管风琴 + 钟表滴答，由 npm run bgm 生成
+      { id: 'orbit', title: 'Orbit', by: '原创 · 管风琴与钟表', src: 'audio/orbit.mp3' },
+    ],
+  },
 
   /** 右上角外链 */
   links: [{ id: 'github', label: 'GitHub', href: 'https://github.com/semibluff888' }],

@@ -47,19 +47,29 @@
           <span class="hud-progress__value"><b data-decoded>0</b><span>/</span><span data-total>4</span></span>
           <span class="hud-progress__bar" data-progress-bar></span>
         </div>
-        <div class="hud-filter map-only" data-filter>
+        <div class="hud-pop map-only" data-pop="filter">
           <button class="hud-btn" type="button" data-action="filter" aria-expanded="false" aria-controls="filter-panel" aria-label="星图配色" title="配色 (C)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.6" /><circle cx="12" cy="7.9" r="2.1" /><circle cx="8.45" cy="14.05" r="2.1" /><circle cx="15.55" cy="14.05" r="2.1" /></svg>
           </button>
-          <div class="filter-panel" id="filter-panel" hidden>
-            <p class="filter-panel__head" id="filter-panel-title"><span>FILTER</span>星图配色</p>
-            <div class="filter-panel__list" role="radiogroup" aria-labelledby="filter-panel-title" data-filter-list></div>
-            <p class="filter-panel__foot only-pointer"><kbd>C</kbd>循环切换</p>
+          <div class="hud-panel" id="filter-panel" hidden>
+            <p class="hud-panel__head" id="filter-panel-title"><span>FILTER</span>星图配色</p>
+            <div class="hud-panel__list" role="radiogroup" aria-labelledby="filter-panel-title" data-pop-list></div>
+            <p class="hud-panel__foot only-pointer"><span><kbd>C</kbd>循环切换</span></p>
           </div>
         </div>
         <button class="hud-btn" type="button" data-action="sound" aria-pressed="false" aria-label="开启配乐与音效" title="配乐与音效 (M)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-speaker" d="M4 9h3l5-4v14l-5-4H4z" /><path class="i-wave" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" /><path class="i-mute" d="M16 9.5l5 5M21 9.5l-5 5" /></svg>
         </button>
+        <div class="hud-pop" data-pop="bgm">
+          <button class="hud-btn" type="button" data-action="bgm" aria-expanded="false" aria-controls="bgm-panel" aria-label="背景配乐" title="背景配乐 (B)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5.5l11-2V16" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></svg>
+          </button>
+          <div class="hud-panel" id="bgm-panel" hidden>
+            <p class="hud-panel__head" id="bgm-panel-title"><span>BGM</span>背景配乐</p>
+            <div class="hud-panel__list" role="radiogroup" aria-labelledby="bgm-panel-title" data-pop-list></div>
+            <p class="hud-panel__foot only-pointer"><span><kbd>B</kbd>下一首</span><span><kbd>M</kbd>开关声音</span></p>
+          </div>
+        </div>
         <button class="hud-btn" type="button" data-action="view" aria-label="切换到列表视图" title="列表 / 星图 (L)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-list" d="M4 5h6v6H4zM14 5h6v6h-6zM4 13h6v6H4zM14 13h6v6h-6z" /><g class="i-map"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></g></svg>
         </button>
@@ -81,6 +91,7 @@
         <span class="only-pointer"><kbd>滚轮</kbd>缩放</span>
         <span class="only-pointer"><kbd>悬停</kbd>扫描</span>
         <span class="only-pointer"><kbd>点击</kbd>锁定</span>
+        <span class="only-pointer"><kbd>C</kbd>配色</span>
         <span class="only-pointer"><kbd>~</kbd>控制台</span>
         <span class="only-touch"><kbd>拖动</kbd>环视</span>
         <span class="only-touch"><kbd>双指</kbd>缩放</span>

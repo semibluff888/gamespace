@@ -843,6 +843,25 @@ export async function createExperience(opts) {
         io.print(`配乐与音效：${audio.enabled ? 'ON' : 'OFF'}`, 't-ok');
       },
     },
+    bgm: {
+      usage: 'bgm [曲目]',
+      desc: '查看 / 切换背景配乐',
+      run: (a, io) => {
+        const q = a.join(' ').toLowerCase();
+        if (!q) {
+          audio.tracks.forEach((t, i) => {
+            const on = t.id === audio.track?.id;
+            io.print(`  ${on ? '●' : '○'} ${String(i + 1).padStart(2, '0')}  ${t.id.padEnd(10)} ${t.title}${t.by ? ` · ${t.by}` : ''}`, on ? 't-ok' : '');
+          });
+          return io.print(audio.tracks.length > 1 ? '用法：bgm <名称|序号>，或按 B 键切换下一首。' : '只有一首配乐。', 't-dim');
+        }
+        const t = audio.tracks.find((x, i) => x.id === q || String(i + 1) === q.replace(/^0+/, '') || x.title.toLowerCase() === q);
+        if (!t) return io.print('没有这首曲子。输入 bgm 查看列表。', 't-err');
+        audio.setTrack(t.id);
+        io.print(`背景配乐：${t.title}${t.by ? ` · ${t.by}` : ''}`, 't-ok');
+      },
+    },
+    music: { hidden: true, run: (a, io) => commands.bgm.run(a, io) },
     filter: {
       usage: 'filter [配色]',
       desc: '切换星图配色（观测滤镜）',
@@ -903,6 +922,7 @@ export async function createExperience(opts) {
       const c = (cmd || '').toLowerCase();
       if (c === 'goto' || c === 'launch') return [...worlds.map((w) => w.id), ...(c === 'goto' ? ['core'] : [])];
       if (c === 'sound') return ['on', 'off'];
+      if (c === 'bgm' || c === 'music') return audio.tracks.map((t) => t.id);
       if (c === 'filter' || c === 'theme') return themes.list.map((t) => t.id);
       return [];
     },

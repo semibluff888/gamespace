@@ -96,19 +96,20 @@ npm run deploy -- -Server <服务器>   # 构建并发布到 VPS（见 DEPLOY.md
 | 上一个 / 下一个 | ← / → | 档案底部按钮 |
 | 返回全景 | Esc 或点空白处 | 关闭按钮 |
 | 列表 / 星图 | L | 右上角按钮 |
-| 配乐与音效 | M | 右上角按钮 |
+| 声音开关 | M | 右上角喇叭 |
+| 换背景配乐 | B（Shift + B 上一首） | 右上角「配乐」按钮 |
 | 星图配色 | C（Shift + C 反向） | 右上角按钮 |
 | 控制台 | ~ | — |
 
-控制台命令：`help`、`ls`、`goto <id|序号>`、`launch <id|序号>`、`scan`、`about`、`sound [on|off]`、`filter [配色]`、`list`、`reset`、`clear`、`exit`（还有几个隐藏彩蛋）。
+控制台命令：`help`、`ls`、`goto <id|序号>`、`launch <id|序号>`、`scan`、`about`、`sound [on|off]`、`bgm [曲目]`、`filter [配色]`、`list`、`reset`、`clear`、`exit`（还有几个隐藏彩蛋）。
 
 ## 背景配乐
 
-点右上角喇叭（或按 M）开启声音后，背景配乐淡入并循环播放；关闭声音、切到列表视图、切走标签页时淡出暂停，跃迁时自动压低。
+声音默认开启：浏览器不允许网页自己出声，所以配乐在访客第一次点击 / 轻点 / 按键时淡入，之后循环播放（星图和列表视图都放）；切走标签页时淡出暂停，跃迁时自动压低。访客点右上角喇叭（或按 M）可以关掉声音，点「配乐」按钮（或按 B）换曲，换曲时交叉淡入淡出；两项选择都记在访客的浏览器里，关掉过声音的访客下次来仍是静音。
 
-- 默认曲目是《星际穿越》原声 Cornfield Chase（Hans Zimmer，`public/audio/bgm-cut.mp3`）：0:34 至结尾的选段，开头加了 0.6 秒淡入、裁掉结尾静音，响度压到与 Orbit 相同（约 −14 LUFS），循环时从尾声的淡出接回安静的开头。注意这是受版权保护的电影原声，版权方投诉时换回 Orbit 即可。
-- 备选曲目是原创的「Orbit」（`public/audio/orbit.mp3`）：管风琴 + 钟表滴答的太空氛围曲，D 小调、160 秒无缝循环，由 `npm run bgm`（`scripts/compose-bgm.mjs`，需要 ffmpeg）离线合成，可以改脚本里的和弦、配器和段落后重新生成。
-- 换曲子：把音频放进 `public/audio/` 并修改 `src/data/site.js` 的 `music.src`（音量是 `music.volume`）。
+- 默认曲目是《星际穿越》原声 Cornfield Chase（Hans Zimmer，`public/audio/bgm-cut.mp3`）：0:34 至结尾的选段，开头加了 0.6 秒淡入、裁掉结尾静音，响度压到与 Orbit 相同（约 −14 LUFS），循环时从尾声的淡出接回安静的开头。注意这是受版权保护的电影原声，版权方投诉时把它从 `music.tracks` 里删掉、再删掉音频文件即可。
+- 第二首是原创的「Orbit」（`public/audio/orbit.mp3`）：管风琴 + 钟表滴答的太空氛围曲，D 小调、160 秒无缝循环，由 `npm run bgm`（`scripts/compose-bgm.mjs`，需要 ffmpeg）离线合成，可以改脚本里的和弦、配器和段落后重新生成。
+- 曲目列表在 `src/data/site.js` 的 `music.tracks`：第一首是新访客听到的默认曲目，`title` / `by` 显示在配乐面板里，`volume` 可按单曲覆盖（默认用 `music.volume`）。加曲子就把音频放进 `public/audio/` 再加一项；只剩一首时「配乐」按钮自动隐藏。
 
 ## 降级与调试参数
 

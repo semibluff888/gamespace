@@ -1,15 +1,23 @@
 import { storage } from './storage.js';
 
 const KEY = 'sound:v1';
+const TRACK_KEY = 'bgm:v1';
+
+/** site.music → 曲目列表（兼容旧写法 { src }） */
+function normalizeTracks(cfg) {
+  const list = cfg?.tracks || (cfg?.src ? [{ id: 'bgm', title: 'BGM', src: cfg.src }] : []);
+  return list.filter((t) => t && t.id && t.src);
+}
 
 /**
  * 背景配乐 + 程序化合成的环境音与 UI 音效（WebAudio）。
- * 默认静音；浏览器要求在用户手势中启动 AudioContext 和音乐播放。
+ * 默认开启（访客关掉后记住）；但浏览器要求在用户手势中启动 AudioContext 和音乐播放，
+ * 所以真正出声要等第一次点击 / 按键（见 main.js 的 unlockAudio）。
  *
  * 配乐用 <audio> 流式播放（不把整首解码进内存），再接进 WebAudio 做淡入淡出与避让：
- * 星图和列表视图都会播放；关闭声音、切走标签页时淡出并暂停；跃迁时压低。
+ * 星图和列表视图都会播放；关闭声音、切走标签页时淡出并暂停；跃迁时压低；换曲时交叉淡入淡出。
  *
- * @param {{ music?: { src: string, volume?: number } }} [options]
+ * @param {{ music?: { volume?: number, tracks: { id: string, title: string, by?: string, src: string, volume?: number }[] } }} [options]
  */
 export function createAudio({ music: musicCfg = null } = {}) {
   let ctx = null;
@@ -21,14 +29,17 @@ export function createAudio({ music: musicCfg = null } = {}) {
   let white = null;
   let scanOsc = null;
   let scanGain = null;
-  let music = null;
-  let musicPause = 0;
   let musicRetry = false;
-  let enabled = !!storage.get(KEY, false);
+  let enabled = storage.get(KEY, true) !== false;
   const listeners = new Set();
-  const musicLevel = musicCfg?.volume ?? 0.45;
+  const trackListeners = new Set();
+  const tracks = normalizeTracks(musicCfg);
+  const players = new Map();
+  let trackId = [storage.get(TRACK_KEY), tracks[0]?.id].find((id) => tracks.some((t) => t.id === id)) || null;
+  const trackOf = (id) => tracks.find((t) => t.id === id) || null;
+  const levelOf = (id) => trackOf(id)?.volume ?? musicCfg?.volume ?? 0.45;
   // 有配乐时，环境底噪压低，免得和音乐打架
-  const droneLevel = musicCfg?.src ? 0.12 : 0.35;
+  const droneLevel = tracks.length ? 0.12 : 0.35;
 
   function ensure() {
     if (ctx) return ctx;
@@ -243,32 +254,37 @@ export function createAudio({ music: musicCfg = null } = {}) {
   }
 
   // ---------- 背景配乐 ----------
-  function ensureMusic() {
-    if (music || !musicCfg?.src || !ctx) return music;
+  // 每首曲子一个 <audio>（第一次播放时才创建并开始下载），换曲时两首交叉淡入淡出
+  function ensurePlayer(id) {
+    if (players.has(id)) return players.get(id);
+    const t = trackOf(id);
+    if (!t || !ctx) return null;
+    let p = null;
     try {
       const el = new Audio();
-      el.src = musicCfg.src;
+      el.src = t.src;
       el.loop = true;
       el.preload = 'auto';
       const gain = ctx.createGain();
       gain.gain.value = 0;
       ctx.createMediaElementSource(el).connect(gain).connect(master);
-      music = { el, gain };
+      p = { el, gain, pause: 0 };
     } catch {
-      music = null;
+      p = null;
     }
-    return music;
+    players.set(id, p);
+    return p;
   }
 
   const musicWanted = () => enabled && !document.hidden;
 
-  function startMusic() {
-    const m = ensureMusic();
-    if (!m) return;
-    clearTimeout(musicPause);
-    if (m.el.paused) {
+  function startMusic(fade = 2.8) {
+    const p = trackId && ensurePlayer(trackId);
+    if (!p) return;
+    clearTimeout(p.pause);
+    if (p.el.paused) {
       // 浏览器可能拒绝不在用户手势里的播放（例如切回标签页时）：等下一次点击 / 按键再试
-      m.el.play().then(
+      p.el.play().then(
         () => {
           musicRetry = false;
         },
@@ -277,22 +293,50 @@ export function createAudio({ music: musicCfg = null } = {}) {
         },
       );
     }
-    ramp(m.gain.gain, musicLevel, 2.8);
+    ramp(p.gain.gain, levelOf(trackId), fade);
+  }
+
+  function fadeOut(p, fade) {
+    if (!p) return;
+    ramp(p.gain.gain, 0, fade);
+    clearTimeout(p.pause);
+    p.pause = setTimeout(() => {
+      if (!(p === players.get(trackId) && musicWanted())) p.el.pause();
+    }, fade * 1000 + 80);
   }
 
   function stopMusic(fade = 0.8) {
-    if (!music) return;
-    ramp(music.gain.gain, 0, fade);
-    clearTimeout(musicPause);
-    musicPause = setTimeout(() => {
-      if (!musicWanted()) music.el.pause();
-    }, fade * 1000 + 80);
+    players.forEach((p) => fadeOut(p, fade));
   }
 
   function syncMusic() {
     if (!ctx) return;
     if (musicWanted()) startMusic();
     else stopMusic();
+  }
+
+  /** 换曲：旧曲淡出，新曲从头淡入；enable = 声音关着时顺便打开（访客主动选曲 = 想听） */
+  function setTrack(id, { enable = true } = {}) {
+    if (!trackOf(id)) return false;
+    if (id !== trackId) {
+      const old = players.get(trackId);
+      trackId = id;
+      storage.set(TRACK_KEY, id);
+      if (ctx) fadeOut(old, 0.7);
+      const p = ctx && players.get(id);
+      if (p) {
+        clearTimeout(p.pause);
+        p.el.currentTime = 0;
+      }
+      if (ctx && musicWanted()) startMusic(1.6);
+      trackListeners.forEach((fn) => fn(trackOf(id)));
+    }
+    // 选曲本身就是一次用户手势：声音关着就打开；开着但还没出声（页面刚打开）就顺便启动
+    if (enable) {
+      if (!enabled) setEnabled(true);
+      else api.resumeIfEnabled();
+    }
+    return true;
   }
 
   function setEnabled(on) {
@@ -321,7 +365,7 @@ export function createAudio({ music: musicCfg = null } = {}) {
     if (!ctx) return;
     if (document.hidden) {
       ctx.suspend?.();
-      if (music) music.el.pause();
+      players.forEach((p) => p?.el.pause());
     } else if (enabled) {
       ctx.resume?.();
       syncMusic();
@@ -337,7 +381,7 @@ export function createAudio({ music: musicCfg = null } = {}) {
       setEnabled(!enabled);
       return enabled;
     },
-    /** 在用户手势里调用：恢复上次开启的音效，或补上之前被浏览器拦下的配乐播放 */
+    /** 在用户手势里调用：声音开着但还没出声（刚打开页面 / 切回标签页）时启动，或补上之前被浏览器拦下的配乐播放 */
     resumeIfEnabled() {
       if (enabled && (!ctx || ctx.state !== 'running')) setEnabled(true);
       else if (musicRetry && musicWanted()) startMusic();
@@ -350,10 +394,28 @@ export function createAudio({ music: musicCfg = null } = {}) {
         /* ignore */
       }
       // 跃迁的音效很响：配乐让一让（跃迁结束会跳转页面；从浏览器返回时由 syncMusic 恢复）
-      if (name === 'warp' && music) ramp(music.gain.gain, musicLevel * 0.25, 0.5);
+      const p = name === 'warp' && players.get(trackId);
+      if (p) ramp(p.gain.gain, levelOf(trackId) * 0.25, 0.5);
     },
     /** 重新按当前状态设置配乐（例如从跃迁中返回） */
     syncMusic,
+    /** 全部曲目（site.music.tracks） */
+    tracks,
+    /** 当前曲目 */
+    get track() {
+      return trackOf(trackId);
+    },
+    setTrack,
+    /** 切到下一首（dir = -1 为上一首） */
+    stepTrack(dir = 1) {
+      if (tracks.length < 2) return false;
+      const i = tracks.findIndex((t) => t.id === trackId);
+      return setTrack(tracks[(i + dir + tracks.length) % tracks.length].id);
+    },
+    onTrackChange(fn) {
+      trackListeners.add(fn);
+      return () => trackListeners.delete(fn);
+    },
     /** 扫描音：p ∈ [0,1] 持续升调；null 停止 */
     scan(p) {
       if (!ctx) return;

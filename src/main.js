@@ -124,21 +124,44 @@ themes.onChange(() => {
   }
 });
 
-// 全局快捷键：L 切换视图，M 音效，C 配色（Shift + C 反向）
-window.addEventListener('keydown', (e) => {
-  const t = e.target;
-  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  if (e.metaKey || e.ctrlKey || e.altKey || html.dataset.mode === 'boot') return;
-  if ((e.key === 'l' || e.key === 'L') && caps.webgl2) toggleMode();
-  else if (e.key === 'm' || e.key === 'M') audio.toggle();
-  else if ((e.key === 'c' || e.key === 'C') && mode === 'map' && html.dataset.state !== 'warp') themes.step(e.shiftKey ? -1 : 1);
+// 换曲提示（配乐面板打开时不弹，面板本身已经标出当前曲目）
+audio.onTrackChange((t) => {
+  if (!hud.bgmOpen) toasts.show({ k: 'BGM', v: [t.title, t.by].filter(Boolean).join(' — '), duration: 2200 });
 });
 
-// 浏览器要求在用户手势中启动音频：上次开启过声音的话，每次点击 / 按键时检查一下，
-// 恢复被挂起的音频（例如切回标签页后），或补上被浏览器拦下的配乐播放
-const unlockAudio = () => audio.resumeIfEnabled();
-window.addEventListener('pointerdown', unlockAudio, true);
-window.addEventListener('keydown', unlockAudio, true);
+/** 这次按键会被当成全局快捷键吗（输入框里打字、按着修饰键、开场动画中都不算） */
+function isHotkey(e) {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return false;
+  return !(e.metaKey || e.ctrlKey || e.altKey || html.dataset.mode === 'boot');
+}
+const isKey = (e, k) => e.key === k || e.key === k.toUpperCase();
+
+// 全局快捷键：L 切换视图，M 声音开关，B 换曲（Shift + B 上一首），C 配色（Shift + C 反向）
+window.addEventListener('keydown', (e) => {
+  if (!isHotkey(e)) return;
+  if (isKey(e, 'l') && caps.webgl2) toggleMode();
+  else if (isKey(e, 'm')) audio.toggle();
+  else if (isKey(e, 'b')) audio.stepTrack(e.shiftKey ? -1 : 1);
+  else if (isKey(e, 'c') && mode === 'map' && html.dataset.state !== 'warp') themes.step(e.shiftKey ? -1 : 1);
+});
+
+// 声音默认开启，但浏览器只允许在用户手势里启动音频：第一次点击 / 轻点 / 按键时开始播放；
+// 之后的每次手势也顺带检查一下，恢复被挂起的音频（例如切回标签页后），或补上被浏览器拦下的配乐播放。
+// 喇叭按钮、配乐面板里的曲目和 M / B 键会自己开关 / 播放，这里跳过，免得先放一下又被关掉。
+// 手机上 pointerdown 还不算手势（要等抬起），所以抬起、点击也都监听；没有手势激活时不去碰音频。
+const unlockAudio = (e) => {
+  if (navigator.userActivation && !navigator.userActivation.isActive) return;
+  if (e.type === 'keydown') {
+    if (isHotkey(e) && (isKey(e, 'm') || (isKey(e, 'b') && audio.tracks.length > 1))) return;
+  } else if (e.target instanceof Element && e.target.closest('[data-action="sound"], [data-track-id]')) {
+    return;
+  }
+  audio.resumeIfEnabled();
+};
+for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+  window.addEventListener(type, unlockAudio, true);
+}
 
 (async () => {
   const fontsReady = document.fonts?.ready?.then(() => boot.setProgress(0.12)).catch(() => {});

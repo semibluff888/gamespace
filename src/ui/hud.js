@@ -1,4 +1,6 @@
-/** HUD：品牌、解码进度、配色 / 音效 / 视图开关、雷达读数、操作提示、主题色 */
+import { escapeHtml as esc } from './listMarkup.js';
+
+/** HUD：品牌、解码进度、配色 / 音效 / 配乐 / 视图开关、雷达读数、操作提示、主题色 */
 export function createHud({ site, progress, audio, themes, onToggleView }) {
   const html = document.documentElement;
   const base = getComputedStyle(html).getPropertyValue('--accent-base').trim() || '#6ef2ff';
@@ -52,86 +54,141 @@ export function createHud({ site, progress, audio, themes, onToggleView }) {
   audio.onChange(syncSound);
   soundBtn.addEventListener('click', () => audio.toggle());
 
-  // 配色（观测滤镜）：按钮展开一个单选列表；面板保持打开，方便逐个对比
-  const filterWrap = document.querySelector('[data-filter]');
-  const filterBtn = filterWrap.querySelector('[data-action="filter"]');
-  const filterPanel = filterWrap.querySelector('.filter-panel');
-  const filterList = filterWrap.querySelector('[data-filter-list]');
-  const topHud = filterWrap.closest('.hud');
-  filterList.innerHTML = themes.list
-    .map(
-      (t) => `<button type="button" class="filter-opt" role="radio" data-theme-id="${t.id}" style="--sw: linear-gradient(90deg, ${t.swatch.join(', ')})">
-  <span class="filter-opt__sw" aria-hidden="true"></span>
-  <span class="filter-opt__name">${t.name}<em>${t.en}</em></span>
-  <span class="filter-opt__desc">${t.desc}</span>
-</button>`,
-    )
-    .join('');
-  const opts = [...filterList.querySelectorAll('.filter-opt')];
-  let filterOpen = false;
+  // 弹出面板（配色 / 配乐）：按钮展开一个单选列表；面板保持打开，方便逐个对比。
+  // 同一时间只开一个；Esc、点面板外、焦点离开时收起；方向键在列表里移动并立即生效。
+  const topHud = document.querySelector('.hud--top');
+  const popovers = [];
 
-  function syncFilter(id) {
-    opts.forEach((o) => {
-      const on = o.dataset.themeId === id;
-      o.setAttribute('aria-checked', on ? 'true' : 'false');
-      o.tabIndex = on ? 0 : -1;
+  function createPopover(wrap, { render, onPick }) {
+    const btn = wrap.querySelector('.hud-btn');
+    const panel = wrap.querySelector('.hud-panel');
+    const list = wrap.querySelector('[data-pop-list]');
+    list.innerHTML = render();
+    const opts = [...list.querySelectorAll('[role="radio"]')];
+    const current = () => opts.find((o) => o.tabIndex === 0);
+    let open = false;
+
+    function setOpen(v, { focus = false } = {}) {
+      if (v === open) return;
+      if (v) popovers.forEach((p) => p !== pop && p.setOpen(false));
+      open = v;
+      panel.hidden = !v;
+      btn.setAttribute('aria-expanded', v ? 'true' : 'false');
+      topHud.classList.toggle('has-popover', popovers.some((p) => p.open));
+      if (v && focus) current()?.focus();
+      if (!v && focus) btn.focus();
+    }
+
+    btn.addEventListener('click', (e) => setOpen(!open, { focus: e.detail === 0 }));
+    // 面板已打开、焦点还在按钮上（例如用鼠标打开）时，上下键进入列表
+    btn.addEventListener('keydown', (e) => {
+      if (!open || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      current()?.focus();
     });
+    list.addEventListener('click', (e) => {
+      const o = e.target.closest('[role="radio"]');
+      if (o) onPick(o);
+    });
+    list.addEventListener('keydown', (e) => {
+      const i = opts.indexOf(document.activeElement);
+      if (i < 0) return;
+      const k = e.key;
+      let n = -1;
+      if (k === 'ArrowDown' || k === 'ArrowRight') n = (i + 1) % opts.length;
+      else if (k === 'ArrowUp' || k === 'ArrowLeft') n = (i - 1 + opts.length) % opts.length;
+      else if (k === 'Home') n = 0;
+      else if (k === 'End') n = opts.length - 1;
+      if (n < 0) return;
+      // 不让方向键继续冒泡到星图（锁定星球时左右键会切换星球）
+      e.preventDefault();
+      e.stopPropagation();
+      opts[n].focus();
+      onPick(opts[n]);
+    });
+    wrap.addEventListener('focusout', (e) => {
+      if (open && e.relatedTarget && !wrap.contains(e.relatedTarget)) setOpen(false);
+    });
+
+    const pop = {
+      wrap,
+      panel,
+      get open() {
+        return open;
+      },
+      setOpen,
+      /** 标出当前选中项 */
+      check(match) {
+        opts.forEach((o) => {
+          const on = match(o);
+          o.setAttribute('aria-checked', on ? 'true' : 'false');
+          o.tabIndex = on ? 0 : -1;
+        });
+      },
+    };
+    popovers.push(pop);
+    return pop;
   }
+
+  // Esc 先收起面板（在 document 上拦截，星图的 Esc「退出锁定」挂在 window 上，不会同时触发）
+  document.addEventListener('keydown', (e) => {
+    const pop = popovers.find((p) => p.open);
+    if (e.key === 'Escape' && pop) {
+      e.preventDefault();
+      e.stopPropagation();
+      pop.setOpen(false, { focus: pop.wrap.contains(document.activeElement) });
+    }
+  });
+  // 点击面板以外的地方时收起
+  document.addEventListener('pointerdown', (e) => {
+    popovers.forEach((p) => p.open && !p.wrap.contains(e.target) && p.setOpen(false));
+  });
+
+  // 配色（观测滤镜）
+  const filterPop = createPopover(document.querySelector('[data-pop="filter"]'), {
+    render: () =>
+      themes.list
+        .map(
+          (t) => `<button type="button" class="hud-opt filter-opt" role="radio" data-theme-id="${t.id}" style="--sw: linear-gradient(90deg, ${t.swatch.join(', ')})">
+  <span class="filter-opt__sw" aria-hidden="true"></span>
+  <span class="hud-opt__name">${t.name}<em>${t.en}</em></span>
+  <span class="hud-opt__desc">${t.desc}</span>
+</button>`,
+        )
+        .join(''),
+    onPick: (o) => themes.set(o.dataset.themeId),
+  });
+  const syncFilter = (id) => filterPop.check((o) => o.dataset.themeId === id);
   syncFilter(themes.id);
   themes.onChange(syncFilter);
 
-  function setFilterOpen(open, { focus = false } = {}) {
-    if (open === filterOpen) return;
-    filterOpen = open;
-    filterPanel.hidden = !open;
-    filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    topHud.classList.toggle('has-popover', open);
-    if (open && focus) opts.find((o) => o.tabIndex === 0)?.focus();
-    if (!open && focus) filterBtn.focus();
+  // 配乐：只有一首曲子时不需要这个按钮
+  const bgmWrap = document.querySelector('[data-pop="bgm"]');
+  let bgmPop = null;
+  if (audio.tracks.length > 1) {
+    bgmPop = createPopover(bgmWrap, {
+      render: () =>
+        audio.tracks
+          .map(
+            (t, i) => `<button type="button" class="hud-opt bgm-opt" role="radio" data-track-id="${esc(t.id)}">
+  <span class="bgm-opt__no" aria-hidden="true"><b>${String(i + 1).padStart(2, '0')}</b><span class="bgm-opt__eq"><i></i><i></i><i></i></span></span>
+  <span class="hud-opt__name">${esc(t.title)}</span>
+  <span class="hud-opt__desc">${esc(t.by || '')}</span>
+</button>`,
+          )
+          .join(''),
+      onPick: (o) => audio.setTrack(o.dataset.trackId),
+    });
+    const syncTrack = (t) => bgmPop.check((o) => o.dataset.trackId === t?.id);
+    syncTrack(audio.track);
+    audio.onTrackChange(syncTrack);
+    const syncPlaying = (on) => bgmPop.panel.classList.toggle('is-playing', on);
+    syncPlaying(audio.enabled);
+    audio.onChange(syncPlaying);
+  } else {
+    bgmWrap.remove();
   }
-  filterBtn.addEventListener('click', (e) => setFilterOpen(!filterOpen, { focus: e.detail === 0 }));
-  // 面板已打开、焦点还在按钮上（例如用鼠标打开）时，上下键进入列表
-  filterBtn.addEventListener('keydown', (e) => {
-    if (!filterOpen || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    opts.find((o) => o.tabIndex === 0)?.focus();
-  });
-  filterList.addEventListener('click', (e) => {
-    const o = e.target.closest('.filter-opt');
-    if (o) themes.set(o.dataset.themeId);
-  });
-  filterList.addEventListener('keydown', (e) => {
-    const i = opts.indexOf(document.activeElement);
-    if (i < 0) return;
-    const k = e.key;
-    let n = -1;
-    if (k === 'ArrowDown' || k === 'ArrowRight') n = (i + 1) % opts.length;
-    else if (k === 'ArrowUp' || k === 'ArrowLeft') n = (i - 1 + opts.length) % opts.length;
-    else if (k === 'Home') n = 0;
-    else if (k === 'End') n = opts.length - 1;
-    if (n < 0) return;
-    // 不让方向键继续冒泡到星图（锁定星球时左右键会切换星球）
-    e.preventDefault();
-    e.stopPropagation();
-    opts[n].focus();
-    themes.set(opts[n].dataset.themeId);
-  });
-  // Esc 先收起面板（在 document 上拦截，星图的 Esc「退出锁定」挂在 window 上，不会同时触发）
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && filterOpen) {
-      e.preventDefault();
-      e.stopPropagation();
-      setFilterOpen(false, { focus: filterWrap.contains(document.activeElement) });
-    }
-  });
-  // 点击面板以外的地方或焦点离开时收起
-  document.addEventListener('pointerdown', (e) => {
-    if (filterOpen && !filterWrap.contains(e.target)) setFilterOpen(false);
-  });
-  filterWrap.addEventListener('focusout', (e) => {
-    if (filterOpen && e.relatedTarget && !filterWrap.contains(e.relatedTarget)) setFilterOpen(false);
-  });
 
   // 视图
   const viewBtn = document.querySelector('[data-action="view"]');
@@ -139,7 +196,7 @@ export function createHud({ site, progress, audio, themes, onToggleView }) {
   function setView(mode, { canMap = true } = {}) {
     viewBtn.setAttribute('aria-label', mode === 'list' ? '切换到星图视图' : '切换到列表视图');
     viewBtn.hidden = !canMap;
-    if (mode === 'list') setFilterOpen(false);
+    popovers.forEach((p) => p.setOpen(false));
   }
 
   // 雷达读数（只在变化时写 DOM）
@@ -179,10 +236,10 @@ export function createHud({ site, progress, audio, themes, onToggleView }) {
     setReadout,
     noteInteraction,
     get filterOpen() {
-      return filterOpen;
+      return filterPop.open;
     },
-    closeFilter() {
-      setFilterOpen(false);
+    get bgmOpen() {
+      return !!bgmPop?.open;
     },
     setAccent(color) {
       html.style.setProperty('--accent', color || base);
