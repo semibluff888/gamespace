@@ -3,10 +3,15 @@ import { storage } from './storage.js';
 const KEY = 'sound:v1';
 
 /**
- * 程序化合成的环境音与 UI 音效（WebAudio，无需任何音频文件）。
- * 默认静音；浏览器要求在用户手势中启动 AudioContext。
+ * 背景配乐 + 程序化合成的环境音与 UI 音效（WebAudio）。
+ * 默认静音；浏览器要求在用户手势中启动 AudioContext 和音乐播放。
+ *
+ * 配乐用 <audio> 流式播放（不把整首解码进内存），再接进 WebAudio 做淡入淡出与避让：
+ * 星图和列表视图都会播放；关闭声音、切走标签页时淡出并暂停；跃迁时压低。
+ *
+ * @param {{ music?: { src: string, volume?: number } }} [options]
  */
-export function createAudio() {
+export function createAudio({ music: musicCfg = null } = {}) {
   let ctx = null;
   let master = null;
   let sfxBus = null;
@@ -16,8 +21,14 @@ export function createAudio() {
   let white = null;
   let scanOsc = null;
   let scanGain = null;
+  let music = null;
+  let musicPause = 0;
+  let musicRetry = false;
   let enabled = !!storage.get(KEY, false);
   const listeners = new Set();
+  const musicLevel = musicCfg?.volume ?? 0.45;
+  // 有配乐时，环境底噪压低，免得和音乐打架
+  const droneLevel = musicCfg?.src ? 0.12 : 0.35;
 
   function ensure() {
     if (ctx) return ctx;
@@ -220,10 +231,68 @@ export function createAudio() {
     key() {
       burst({ type: 'highpass', f0: 4200, dur: 0.018, gain: 0.025 });
     },
+    // 滤镜轮转动：一声机械咔哒 + 短促的扫频
+    filter() {
+      tone({ type: 'triangle', f0: 540, dur: 0.05, gain: 0.05 });
+      burst({ f0: 3000, f1: 700, dur: 0.2, gain: 0.03, q: 1.1, delay: 0.035 });
+    },
   };
 
   function emit() {
     listeners.forEach((fn) => fn(enabled));
+  }
+
+  // ---------- 背景配乐 ----------
+  function ensureMusic() {
+    if (music || !musicCfg?.src || !ctx) return music;
+    try {
+      const el = new Audio();
+      el.src = musicCfg.src;
+      el.loop = true;
+      el.preload = 'auto';
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      ctx.createMediaElementSource(el).connect(gain).connect(master);
+      music = { el, gain };
+    } catch {
+      music = null;
+    }
+    return music;
+  }
+
+  const musicWanted = () => enabled && !document.hidden;
+
+  function startMusic() {
+    const m = ensureMusic();
+    if (!m) return;
+    clearTimeout(musicPause);
+    if (m.el.paused) {
+      // 浏览器可能拒绝不在用户手势里的播放（例如切回标签页时）：等下一次点击 / 按键再试
+      m.el.play().then(
+        () => {
+          musicRetry = false;
+        },
+        () => {
+          musicRetry = true;
+        },
+      );
+    }
+    ramp(m.gain.gain, musicLevel, 2.8);
+  }
+
+  function stopMusic(fade = 0.8) {
+    if (!music) return;
+    ramp(music.gain.gain, 0, fade);
+    clearTimeout(musicPause);
+    musicPause = setTimeout(() => {
+      if (!musicWanted()) music.el.pause();
+    }, fade * 1000 + 80);
+  }
+
+  function syncMusic() {
+    if (!ctx) return;
+    if (musicWanted()) startMusic();
+    else stopMusic();
   }
 
   function setEnabled(on) {
@@ -238,18 +307,25 @@ export function createAudio() {
       ctx.resume?.();
       startDrone();
       ramp(master.gain, 0.6, 0.6);
-      ramp(droneBus.gain, 0.35, 2.2);
+      ramp(droneBus.gain, droneLevel, 2.2);
+      syncMusic();
     } else if (ctx) {
       ramp(master.gain, 0, 0.35);
       api.scan(null);
+      stopMusic(0.35);
     }
     emit();
   }
 
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) ctx.suspend?.();
-    else if (enabled) ctx.resume?.();
+    if (document.hidden) {
+      ctx.suspend?.();
+      if (music) music.el.pause();
+    } else if (enabled) {
+      ctx.resume?.();
+      syncMusic();
+    }
   });
 
   const api = {
@@ -261,9 +337,10 @@ export function createAudio() {
       setEnabled(!enabled);
       return enabled;
     },
-    /** 在第一次用户手势时调用：恢复上次开启的音效 */
+    /** 在用户手势里调用：恢复上次开启的音效，或补上之前被浏览器拦下的配乐播放 */
     resumeIfEnabled() {
       if (enabled && (!ctx || ctx.state !== 'running')) setEnabled(true);
+      else if (musicRetry && musicWanted()) startMusic();
     },
     play(name) {
       if (!enabled || !ctx || ctx.state !== 'running') return;
@@ -272,7 +349,11 @@ export function createAudio() {
       } catch {
         /* ignore */
       }
+      // 跃迁的音效很响：配乐让一让（跃迁结束会跳转页面；从浏览器返回时由 syncMusic 恢复）
+      if (name === 'warp' && music) ramp(music.gain.gain, musicLevel * 0.25, 0.5);
     },
+    /** 重新按当前状态设置配乐（例如从跃迁中返回） */
+    syncMusic,
     /** 扫描音：p ∈ [0,1] 持续升调；null 停止 */
     scan(p) {
       if (!ctx) return;

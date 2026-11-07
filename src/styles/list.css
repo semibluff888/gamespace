@@ -5,9 +5,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   background:
-    radial-gradient(ellipse 80% 50% at 15% 0%, rgba(60, 70, 180, 0.16), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 100% 30%, rgba(140, 40, 120, 0.12), transparent 60%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(20, 110, 130, 0.12), transparent 60%),
+    radial-gradient(ellipse 80% 50% at 15% 0%, var(--neb-1), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 30%, var(--neb-2), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 50% 100%, var(--neb-3), transparent 60%),
     var(--bg);
 }
 

@@ -188,6 +188,169 @@
 html[data-mode='list'] .hud-btn[data-action='view'] .i-map { display: inline; }
 html[data-mode='list'] .hud-btn[data-action='view'] .i-list { display: none; }
 
+.hud-btn[data-action='filter'][aria-expanded='true'] {
+  color: #fff;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ---------- 配色面板（观测滤镜） ---------- */
+.hud-controls {
+  position: relative;
+}
+
+/* 面板相对整排按钮右对齐，所以这里不设定位 */
+.hud-filter {
+  display: inline-flex;
+}
+
+/* 面板打开时盖过档案面板 */
+.hud--top.has-popover {
+  z-index: 40;
+}
+
+.filter-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(272px, calc(100vw - 32px));
+  padding: 12px 8px 10px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line-strong);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  animation: filter-in 0.28s var(--ease-out) both;
+}
+
+.filter-panel[hidden] {
+  display: none;
+}
+
+@keyframes filter-in {
+  from { opacity: 0; transform: translateY(-6px); clip-path: polygon(12px 0, 100% 0, 100% 0, 100% 0, 0 0, 0 0); }
+}
+
+.filter-panel__head {
+  display: flex;
+  gap: 10px;
+  margin: 0 8px 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+.filter-panel__head span {
+  color: var(--accent);
+}
+
+.filter-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filter-opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  row-gap: 2px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 30px 8px 8px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.filter-opt:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.filter-opt[aria-checked='true'] {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.filter-opt:focus-visible {
+  outline-offset: -1px;
+}
+
+.filter-opt__sw {
+  grid-row: 1 / span 2;
+  width: 46px;
+  height: 28px;
+  background: var(--sw);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+.filter-opt__name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.filter-opt__name em {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+}
+
+.filter-opt__desc {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* 选中标记 */
+.filter-opt::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border: 1px solid var(--line-strong);
+  transform: rotate(45deg);
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-opt[aria-checked='true']::after {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.filter-panel__foot {
+  margin: 8px 8px 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.filter-panel__foot kbd {
+  margin-right: 6px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
 /* ---------- 雷达 ---------- */
 .hud-radar {
   display: flex;
@@ -390,5 +553,31 @@ html[data-state='warp'] .hud {
     font-size: 11px;
     gap: 4px 10px;
     max-width: 60vw;
+  }
+}
+
+/* 很窄的竖屏：品牌名与四个按钮放不下一排，解码进度挪到按钮下方单独一行 */
+@media (max-width: 460px) {
+  .hud-controls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 9px;
+    max-width: 172px;
+  }
+
+  .hud-progress {
+    order: 1;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-right: 0;
+  }
+
+  .hud-progress__value {
+    font-size: 12px;
+  }
+
+  .hud-progress__bar {
+    width: 60px;
   }
 }

@@ -13,12 +13,15 @@ import {
   Scene,
   ShaderMaterial,
   UnsignedByteType,
+  Vector2,
+  Vector4,
   WebGLRenderTarget,
 } from 'three';
 
 /**
  * 星系尘埃盘：铺在星图平面上的三条螺旋旋臂（星云）+ 沿旋臂分布的星点，缓慢旋转。
- * 旋臂星云在启动时烘焙成一张贴图，之后每帧只是一个带贴图的平面 + 一组点，几乎零开销。
+ * 旋臂星云在启动时烘焙成一张贴图，之后每帧只是一个带贴图的平面 + 一组点，几乎零开销；
+ * 切换配色（src/data/themes.js 的 disc 字段）时复用同一个材质重新烘焙，并给星点重新着色。
  */
 const ARMS = 3;
 const PITCH = 0.3; // 旋臂倾角（弧度）
@@ -38,6 +41,12 @@ const HAZE_FRAG = /* glsl */ `
 uniform vec3 uCore;
 uniform vec3 uArm;
 uniform vec3 uOuter;
+uniform vec3 uHaze;
+uniform vec3 uKnot;
+uniform float uCoreGain;
+uniform float uHazeMix;
+uniform float uKnotGain;
+uniform vec4 uBar;
 uniform float uHalf;
 uniform float uR0;
 uniform float uTanPitch;
@@ -80,8 +89,19 @@ void main() {
   float dust = arms * armFade * (0.25 + 0.75 * n) * disk * (1.0 - lanes * 0.65);
   vec3 tint = mix(uArm, uOuter, smoothstep(16.0, 100.0, r));
   vec3 col = tint * dust;
-  col += tint * disk * n * 0.1 * smoothstep(4.0, 20.0, r);
-  col += uCore * exp(-r * r / 260.0) * 0.32;
+  col += mix(tint, uHaze, uHazeMix) * disk * n * 0.1 * smoothstep(4.0, 20.0, r);
+  // 旋臂上的发射星云团块（HII 区）
+  if (uKnotGain > 0.0) {
+    float kn = vnoise(p * 0.8 + 5.3) * 0.6 + vnoise(p * 2.1 + 1.9) * 0.4;
+    float knot = smoothstep(0.64, 0.9, kn);
+    col += uKnot * knot * knot * arms * armFade * disk * (1.0 - lanes * 0.5) * uKnotGain;
+  }
+  col += uCore * exp(-r * r / 260.0) * uCoreGain;
+  // 中央棒（银河系是棒旋星系）：uBar = (强度, 半长, 半宽, 方位角)
+  if (uBar.x > 0.0) {
+    vec2 q = vec2(p.x * cos(uBar.w) + p.y * sin(uBar.w), p.y * cos(uBar.w) - p.x * sin(uBar.w));
+    col += uCore * exp(-(q.x * q.x) / (uBar.y * uBar.y) - (q.y * q.y) / (uBar.z * uBar.z)) * uBar.x;
+  }
   gl_FragColor = vec4(min(col, vec3(1.0)), 1.0);
 }
 `;
@@ -94,14 +114,19 @@ void main() {
 }
 `;
 
+// uCoreBoost = (倍数, 半径)：只提亮盘心（贴图是 8 位的，核球想要真正发亮只能在显示时加）
 const PLANE_FRAG = /* glsl */ `
 uniform sampler2D uMap;
 uniform float uIntensity;
+uniform vec2 uCoreBoost;
 uniform float uDim;
+uniform float uFade;
 varying vec2 vUv;
 void main() {
   vec3 c = texture2D(uMap, vUv).rgb;
-  gl_FragColor = vec4(c * uIntensity * mix(1.0, 0.45, uDim), 1.0);
+  float r = length(vUv - 0.5) * ${(HALF * 2).toFixed(1)};
+  float boost = 1.0 + uCoreBoost.x * exp(-r * r / (2.0 * uCoreBoost.y * uCoreBoost.y));
+  gl_FragColor = vec4(c * uIntensity * boost * mix(1.0, 0.45, uDim) * uFade, 1.0);
 }
 `;
 
@@ -123,18 +148,19 @@ void main() {
 
 const STAR_FRAG = /* glsl */ `
 uniform float uDim;
+uniform float uFade;
 varying vec3 vColor;
 void main() {
   float d = length(gl_PointCoord - 0.5);
   float a = smoothstep(0.5, 0.0, d);
-  gl_FragColor = vec4(vColor * a * a * mix(1.0, 0.4, uDim), 1.0);
+  gl_FragColor = vec4(vColor * a * a * mix(1.0, 0.4, uDim) * uFade, 1.0);
 }
 `;
 
 const gaussian = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
 
-export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 } = {}) {
-  // ---------- 1. 烘焙旋臂星云贴图 ----------
+export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1, theme } = {}) {
+  // ---------- 1. 烘焙旋臂星云贴图（切换配色时复用材质重新烘焙，不重新编译） ----------
   const size = quality === 'low' ? 1024 : 2048;
   const rt = new WebGLRenderTarget(size, size, {
     type: UnsignedByteType,
@@ -146,17 +172,24 @@ export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 
   rt.texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const bakeScene = new Scene();
   const bakeCam = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const bu = {
+    uCore: { value: new Color() },
+    uArm: { value: new Color() },
+    uOuter: { value: new Color() },
+    uHaze: { value: new Color() },
+    uKnot: { value: new Color() },
+    uCoreGain: { value: 0 },
+    uHazeMix: { value: 0 },
+    uKnotGain: { value: 0 },
+    uBar: { value: new Vector4() },
+    uHalf: { value: HALF },
+    uR0: { value: R0 },
+    uTanPitch: { value: Math.tan(PITCH) },
+  };
   const quad = new Mesh(
     new PlaneGeometry(2, 2),
     new ShaderMaterial({
-      uniforms: {
-        uCore: { value: new Color('#ffd9a8') },
-        uArm: { value: new Color('#3f7dff') },
-        uOuter: { value: new Color('#9a46d6') },
-        uHalf: { value: HALF },
-        uR0: { value: R0 },
-        uTanPitch: { value: Math.tan(PITCH) },
-      },
+      uniforms: bu,
       vertexShader: QUAD_VERT,
       fragmentShader: HAZE_FRAG,
       defines: { ARMS },
@@ -175,20 +208,33 @@ export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 
   } catch {
     /* ignore */
   }
-  renderer.setRenderTarget(rt);
-  renderer.render(bakeScene, bakeCam);
-  renderer.setRenderTarget(prev);
-  quad.geometry.dispose();
-  quad.material.dispose();
+
+  function bakeDisc(d) {
+    bu.uCore.value.set(d.core);
+    bu.uArm.value.set(d.arm);
+    bu.uOuter.value.set(d.outer);
+    bu.uHaze.value.set(d.haze);
+    bu.uKnot.value.set(d.knot);
+    bu.uCoreGain.value = d.coreGain;
+    bu.uHazeMix.value = d.hazeMix;
+    bu.uKnotGain.value = d.knotGain;
+    bu.uBar.value.set(...(d.bar || [0, 1, 1, 0]));
+    const was = renderer.getRenderTarget();
+    renderer.setRenderTarget(rt);
+    renderer.render(bakeScene, bakeCam);
+    renderer.setRenderTarget(was);
+  }
 
   const group = new Group();
   const uDim = { value: 0 };
+  const uFade = { value: 1 };
 
   // ---------- 2. 星云平面 ----------
+  const planeUniforms = { uMap: { value: rt.texture }, uIntensity: { value: 0.15 }, uCoreBoost: { value: new Vector2() }, uDim, uFade };
   const plane = new Mesh(
     new PlaneGeometry(HALF * 2, HALF * 2),
     new ShaderMaterial({
-      uniforms: { uMap: { value: rt.texture }, uIntensity: { value: 0.15 }, uDim },
+      uniforms: planeUniforms,
       vertexShader: PLANE_VERT,
       fragmentShader: PLANE_FRAG,
       transparent: true,
@@ -207,9 +253,9 @@ export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 
   const sizes = new Float32Array(count);
   const phase = new Float32Array(count);
   const col = new Float32Array(count * 3);
-  const inner = new Color('#d6e4ff');
-  const outer = new Color('#b98cff');
-  const c = new Color();
+  // 每颗星的「内外位置」与亮度系数，切换配色时据此重新着色
+  const mixT = new Float32Array(count);
+  const gain = new Float32Array(count);
   for (let i = 0; i < count; i++) {
     const r = 14 + Math.pow(Math.random(), 1.2) * 104;
     const k = (Math.random() * ARMS) | 0;
@@ -220,10 +266,8 @@ export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 
     const bright = Math.random() < 0.03;
     sizes[i] = bright ? 1.8 + Math.random() * 1.2 : 0.35 + Math.pow(Math.random(), 3) * 1.1;
     phase[i] = Math.random();
-    c.copy(inner).lerp(outer, Math.min(1, r / 115)).multiplyScalar(bright ? 1.4 : 0.35 + Math.random() * 0.4);
-    col[i * 3] = c.r;
-    col[i * 3 + 1] = c.g;
-    col[i * 3 + 2] = c.b;
+    mixT[i] = Math.min(1, r / 115);
+    gain[i] = bright ? 1.4 : 0.35 + Math.random() * 0.4;
   }
   const geo = new BufferGeometry();
   geo.setAttribute('position', new BufferAttribute(pos, 3));
@@ -231,7 +275,7 @@ export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 
   geo.setAttribute('aPhase', new BufferAttribute(phase, 1));
   geo.setAttribute('aColor', new BufferAttribute(col, 3));
   const starMat = new ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uPixelRatio: { value: pixelRatio }, uDim },
+    uniforms: { uTime: { value: 0 }, uPixelRatio: { value: pixelRatio }, uDim, uFade },
     vertexShader: STAR_VERT,
     fragmentShader: STAR_FRAG,
     transparent: true,
@@ -242,12 +286,37 @@ export async function createGalaxy(renderer, { quality = 'high', pixelRatio = 1 
   stars.frustumCulled = false;
   group.add(stars);
 
+  const inner = new Color();
+  const outer = new Color();
+  const c = new Color();
+  function colorStars(d) {
+    inner.set(d.starsIn);
+    outer.set(d.starsOut);
+    for (let i = 0; i < count; i++) {
+      c.copy(inner).lerp(outer, mixT[i]).multiplyScalar(gain[i]);
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+    }
+    geo.attributes.aColor.needsUpdate = true;
+  }
+
+  function setTheme(t) {
+    bakeDisc(t.disc);
+    planeUniforms.uIntensity.value = t.disc.intensity;
+    planeUniforms.uCoreBoost.value.set(...(t.disc.coreBoost || [0, 1]));
+    colorStars(t.disc);
+  }
+  setTheme(theme);
+
   return {
     object: group,
-    update(dt, t, dim) {
+    setTheme,
+    update(dt, t, dim, fade = 1) {
       group.rotation.y = -t * 0.006;
       starMat.uniforms.uTime.value = t;
       uDim.value = dim;
+      uFade.value = fade;
     },
     setPixelRatio(pr) {
       starMat.uniforms.uPixelRatio.value = pr;

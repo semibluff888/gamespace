@@ -38,7 +38,7 @@
     <header class="hud hud--top">
       <div class="hud-brand">
         <span class="hud-brand__name" data-site="brand">SEMIBLUFF</span>
-        <span class="hud-brand__sub"><span data-site="station">DEEP SPACE ARRAY</span><span class="hud-sep">//</span><span data-site="subtitle">游戏作品星图</span></span>
+        <span class="hud-brand__sub"><span data-site="station">DEEP SPACE ARRAY</span><span class="hud-sep">//</span><span data-site="subtitle">游戏星图</span></span>
         <span class="hud-status map-only"><i class="hud-status__dot"></i><span data-status-text>LINK STABLE</span></span>
       </div>
       <div class="hud-controls">
@@ -47,7 +47,17 @@
           <span class="hud-progress__value"><b data-decoded>0</b><span>/</span><span data-total>4</span></span>
           <span class="hud-progress__bar" data-progress-bar></span>
         </div>
-        <button class="hud-btn map-only" type="button" data-action="sound" aria-pressed="false" aria-label="开启环境音效" title="环境音效 (M)">
+        <div class="hud-filter map-only" data-filter>
+          <button class="hud-btn" type="button" data-action="filter" aria-expanded="false" aria-controls="filter-panel" aria-label="星图配色" title="配色 (C)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.6" /><circle cx="12" cy="7.9" r="2.1" /><circle cx="8.45" cy="14.05" r="2.1" /><circle cx="15.55" cy="14.05" r="2.1" /></svg>
+          </button>
+          <div class="filter-panel" id="filter-panel" hidden>
+            <p class="filter-panel__head" id="filter-panel-title"><span>FILTER</span>星图配色</p>
+            <div class="filter-panel__list" role="radiogroup" aria-labelledby="filter-panel-title" data-filter-list></div>
+            <p class="filter-panel__foot only-pointer"><kbd>C</kbd>循环切换</p>
+          </div>
+        </div>
+        <button class="hud-btn" type="button" data-action="sound" aria-pressed="false" aria-label="开启配乐与音效" title="配乐与音效 (M)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-speaker" d="M4 9h3l5-4v14l-5-4H4z" /><path class="i-wave" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" /><path class="i-mute" d="M16 9.5l5 5M21 9.5l-5 5" /></svg>
         </button>
         <button class="hud-btn" type="button" data-action="view" aria-label="切换到列表视图" title="列表 / 星图 (L)">
@@ -80,7 +90,7 @@
 
     <aside id="dossier" class="dossier" aria-hidden="true" aria-labelledby="dossier-title"></aside>
 
-    <main id="list-view" class="list-view" aria-label="作品列表"><!--PORTAL:LIST--></main>
+    <main id="list-view" class="list-view" aria-label="游戏列表"><!--PORTAL:LIST--></main>
 
     <section id="terminal" class="terminal" hidden aria-label="控制台">
       <div class="terminal__head"><span>OPERATOR CONSOLE</span><span>ESC / ~ 关闭</span></div>

@@ -4,7 +4,7 @@ import { Stage } from './Stage.js';
 import { CameraRig } from './CameraRig.js';
 import { Picker } from './Picker.js';
 import { createStarfield, createDust } from './Starfield.js';
-import { bakeNebula } from './Nebula.js';
+import { createNebula } from './Nebula.js';
 import { createGalaxy } from './GalaxyDisc.js';
 import { createBeacon } from './Beacon.js';
 import { WorldNode } from './WorldNode.js';
@@ -16,14 +16,18 @@ import { createDossier } from '../ui/dossier.js';
 import { createTerminal } from '../ui/terminal.js';
 import { sigCode, actionsFor, STATUS, deriveStatus } from '../ui/listMarkup.js';
 import { fetchLatestRelease, releaseInfo, formatDate } from '../systems/releases.js';
+import { themeById } from '../data/themes.js';
 
 const SCAN_TIME = 0.7;
+// 切换配色：天空淡出 → 分帧重新烘焙 → 淡入（秒）
+const THEME_FADE_OUT = 0.28;
+const THEME_FADE_IN = 0.75;
 const DEFAULT_LIMITS = { minR: 26, maxR: 230, minPhi: 0.32, maxPhi: 1.5 };
 const ORIGIN = new Vector3();
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 export async function createExperience(opts) {
-  const { canvas, games, site, caps, quality, progress, audio, hud, toasts, onProgress = () => {}, requestMode } = opts;
+  const { canvas, games, site, caps, quality, progress, audio, themes, hud, toasts, onProgress = () => {}, requestMode } = opts;
   const isSheet = () => window.matchMedia('(max-width: 760px)').matches;
   const timings = {};
   let t0 = performance.now();
@@ -56,19 +60,19 @@ export async function createExperience(opts) {
   onProgress(0.45);
   await nextFrame();
 
-  const nebula = await bakeNebula(renderer, quality, stage.floatOk);
+  const nebula = await createNebula(renderer, { quality, floatOk: stage.floatOk, theme: themes.theme });
   scene.background = nebula.texture;
   mark('nebula');
   onProgress(0.6);
   await nextFrame();
 
-  const galaxy = await createGalaxy(renderer, { quality, pixelRatio: stage.pixelRatio });
+  const galaxy = await createGalaxy(renderer, { quality, pixelRatio: stage.pixelRatio, theme: themes.theme });
   scene.add(galaxy.object);
   mark('galaxy');
   onProgress(0.66);
 
-  const stars = createStarfield(quality, stage.pixelRatio);
-  const dust = createDust(quality, stage.pixelRatio);
+  const stars = createStarfield(quality, stage.pixelRatio, themes.theme);
+  const dust = createDust(quality, stage.pixelRatio, themes.theme);
   const beacon = createBeacon();
   scene.add(stars.object, dust.object, beacon.group);
 
@@ -213,7 +217,7 @@ export async function createExperience(opts) {
     const g = w.game;
     w.decoded = !w.encrypted && progress.isDecoded(w.id);
     if (w.encrypted) {
-      labels.setContent(w.id, { name: 'ENCRYPTED SIGNAL', sub: '信号加密中 · 无法解析', unknown: true, aria: '加密信号：尚未公开的新作品。按回车打开档案' });
+      labels.setContent(w.id, { name: 'ENCRYPTED SIGNAL', sub: '信号加密中 · 无法解析', unknown: true, aria: '加密信号：尚未公开的新游戏。按回车打开档案' });
     } else if (!w.decoded) {
       labels.setContent(w.id, {
         name: 'UNKNOWN SIGNAL',
@@ -447,6 +451,7 @@ export async function createExperience(opts) {
 
   function resetWarp() {
     clearTimeout(warpTimer);
+    audio.syncMusic();
     gsap.killTweensOf([stage.fx, camera, flash]);
     stage.fx.warp = 0;
     stage.fx.glitch = 0;
@@ -570,6 +575,54 @@ export async function createExperience(opts) {
     });
   }
 
+  // ---------- 配色（观测滤镜） ----------
+  // 背景星云、星系盘、星空在切换时先淡出，天空全黑时每帧烘焙一个立方体面（共 6 帧）+ 星系盘，再淡入；
+  // 连续快速切换时只会烘焙最后选中的那一套
+  const swap = { fade: 1, step: -1, id: themes.id, applied: themes.id };
+  function applyRest(t) {
+    galaxy.setTheme(t);
+    stars.setTheme(t);
+    dust.setTheme(t);
+    stage.noise.blendMode.opacity.value = t.grain ?? 0.4;
+  }
+  stage.noise.blendMode.opacity.value = themes.theme.grain ?? 0.4;
+  themes.onChange(() => {
+    if (!caps.reducedMotion) return;
+    // 减少动态效果：直接整体替换，不做淡入淡出
+    const t = themes.theme;
+    nebula.bake(t);
+    applyRest(t);
+    swap.applied = swap.id = t.id;
+    swap.step = -1;
+    swap.fade = 1;
+  });
+  function updateThemeSwap(dt) {
+    const want = themes.id;
+    if (swap.step >= 0) {
+      if (swap.id !== want) {
+        swap.id = want;
+        swap.step = 0;
+      }
+      const t = themeById(swap.id);
+      if (swap.step < nebula.faces) {
+        nebula.renderFace(t, swap.step++);
+      } else {
+        applyRest(t);
+        swap.applied = swap.id;
+        swap.step = -1;
+      }
+    } else if (swap.applied !== want) {
+      swap.fade = Math.max(0, swap.fade - dt / THEME_FADE_OUT);
+      if (swap.fade === 0) {
+        swap.id = want;
+        swap.step = 0;
+      }
+    } else if (swap.fade < 1) {
+      swap.fade = Math.min(1, swap.fade + dt / THEME_FADE_IN);
+    }
+    return swap.fade * swap.fade * (3 - 2 * swap.fade);
+  }
+
   // ---------- 每帧 ----------
   function frame(dt, t) {
     rig.update(dt, { allowAutoRotate: state === 'explore' && !hovered, parallax: state !== 'warp' });
@@ -598,10 +651,12 @@ export async function createExperience(opts) {
     const dimOthers = state === 'focus' || state === 'warp';
     for (const w of worlds) w.update(dt, t, camera, { dimOthers });
     beacon.update(dt, t, camera, { dimOthers });
-    stars.update(t);
-    dust.update(dt, t);
+    const skyK = updateThemeSwap(dt);
+    scene.backgroundIntensity = skyK;
+    stars.update(t, skyK);
+    dust.update(dt, t, skyK);
     discDim += ((dimOthers ? 1 : 0) - discDim) * (1 - Math.exp(-dt * 3));
-    galaxy.update(dt, t, discDim);
+    galaxy.update(dt, t, discDim, skyK);
 
     // 标签位置 + 防重叠：悬停的、离镜头近的优先；冲突时先换到另一侧，两侧都冲突就淡化较远的那个
     const W = stage.width;
@@ -740,12 +795,12 @@ export async function createExperience(opts) {
     },
     launch: {
       usage: 'launch <id|序号>',
-      desc: '跃迁进入作品',
+      desc: '跃迁进入游戏',
       run: (a, io) => {
         const node = resolveNode(a[0]);
         if (!node || node.kind !== 'world') return io.print('找不到该信号。用 ls 查看列表。', 't-err');
         const act = actionsFor(node.game)[0];
-        if (!act) return io.print(node.encrypted ? '信号强度不足，无法跃迁。' : '该作品的链接待补充。', 't-err');
+        if (!act) return io.print(node.encrypted ? '信号强度不足，无法跃迁。' : '该游戏的链接待补充。', 't-err');
         if (act.newTab) {
           window.open(act.href, '_blank', 'noopener');
           return io.print(`已在新标签页打开：${act.href}`, 't-ok');
@@ -781,13 +836,32 @@ export async function createExperience(opts) {
     },
     sound: {
       usage: 'sound [on|off]',
-      desc: '环境音效开关',
+      desc: '配乐与音效开关',
       run: (a, io) => {
         const v = a[0] === 'on' ? true : a[0] === 'off' ? false : !audio.enabled;
         audio.setEnabled(v);
-        io.print(`环境音效：${audio.enabled ? 'ON' : 'OFF'}`, 't-ok');
+        io.print(`配乐与音效：${audio.enabled ? 'ON' : 'OFF'}`, 't-ok');
       },
     },
+    filter: {
+      usage: 'filter [配色]',
+      desc: '切换星图配色（观测滤镜）',
+      run: (a, io) => {
+        const q = (a[0] || '').toLowerCase();
+        if (!q) {
+          themes.list.forEach((t) => {
+            const on = t.id === themes.id;
+            io.print(`  ${on ? '●' : '○'} ${t.id.padEnd(11)} ${t.name} · ${t.desc}`, on ? 't-ok' : '');
+          });
+          return io.print('用法：filter <名称>，或在星图里按 C 键循环切换。', 't-dim');
+        }
+        const t = themes.list.find((x) => x.id === q || x.en.toLowerCase() === q || x.name === a[0]);
+        if (!t) return io.print('没有这个配色。输入 filter 查看列表。', 't-err');
+        themes.set(t.id);
+        io.print(`观测滤镜：${t.name} ${t.en} · ${t.desc}`, 't-ok');
+      },
+    },
+    theme: { hidden: true, run: (a, io) => commands.filter.run(a, io) },
     list: {
       desc: '切换到列表视图',
       run: () => {
@@ -829,6 +903,7 @@ export async function createExperience(opts) {
       const c = (cmd || '').toLowerCase();
       if (c === 'goto' || c === 'launch') return [...worlds.map((w) => w.id), ...(c === 'goto' ? ['core'] : [])];
       if (c === 'sound') return ['on', 'off'];
+      if (c === 'filter' || c === 'theme') return themes.list.map((t) => t.id);
       return [];
     },
     sound: (n) => audio.play(n),
@@ -918,6 +993,8 @@ export async function createExperience(opts) {
       },
       state: () => state,
       quality: () => stage.quality,
+      theme: () => ({ ...swap }),
+      rig,
       timings: () => ({ ...timings }),
       stage,
       radarBlips: () => {

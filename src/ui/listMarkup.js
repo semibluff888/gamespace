@@ -136,7 +136,7 @@ export function renderListHTML(games, site) {
     <div class="lv">
       <header class="lv__head">
         <p class="lv__kicker">${escapeHtml(site.brand)} <span>//</span> ${escapeHtml(site.station)}</p>
-        <h1 class="lv__title">${escapeHtml(site.subtitle)}</h1>
+        <h1 class="lv__title">${escapeHtml(site.listTitle || site.subtitle)}</h1>
         <p class="lv__desc">${escapeHtml(site.description)}</p>
       </header>
       <ul class="lv__grid">${cards}

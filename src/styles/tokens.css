@@ -19,6 +19,10 @@
   --alert: #ff4d6d;
   --ok: #5cffb0;
   --gold: #ffd479;
+  /* 列表视图背景的星云点缀；随星图配色（src/data/themes.js 的 ui 字段）切换 */
+  --neb-1: rgba(60, 70, 180, 0.16);
+  --neb-2: rgba(140, 40, 120, 0.12);
+  --neb-3: rgba(20, 110, 130, 0.12);
 
   --font-display: 'Chakra Petch', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'PingFang SC', 'Microsoft YaHei', monospace;

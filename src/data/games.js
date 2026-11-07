@@ -110,7 +110,7 @@ export const games = [
     version: 'v0.2.6',
     updated: '2026-10-10',
     badges: ['持续更新'],
-    note: '同人作品 · 非商业用途',
+    note: '同人游戏 · 非商业用途',
     cover: 'games/duel/cover.webp',
     shots: [
       'games/duel/shot-1.webp',
@@ -127,7 +127,7 @@ export const games = [
     genre: '未公开',
     tagline: '新的世界正在成形……',
     description:
-      '信号强度不足，暂时无法解析。已知信息：这是一部尚未公开的新作品。保持连接，等待它浮出深空。',
+      '信号强度不足，暂时无法解析。已知信息：这是一款尚未公开的新游戏。保持连接，等待它浮出深空。',
     platforms: [],
     modes: [],
     engine: '—',

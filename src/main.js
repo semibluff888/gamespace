@@ -16,6 +16,7 @@ import { validateGames } from './data/validate.js';
 import { detectCapabilities, decideMode, initialQuality } from './systems/capabilities.js';
 import { createProgress } from './systems/progress.js';
 import { createAudio } from './systems/audio.js';
+import { createThemes } from './systems/theme.js';
 import { createBoot } from './ui/boot.js';
 import { createHud } from './ui/hud.js';
 import { createToasts } from './ui/toast.js';
@@ -26,14 +27,15 @@ const html = document.documentElement;
 const caps = detectCapabilities();
 let mode = decideMode(caps, site);
 const progress = createProgress(games);
-const audio = createAudio();
+const audio = createAudio({ music: site.music });
+const themes = createThemes({ fallback: site.theme, forced: caps.forcedTheme });
 const toasts = createToasts(document.getElementById('toasts'));
 
 let experience = null;
 let loading = null;
 let switching = false;
 
-const hud = createHud({ site, progress, audio, onToggleView: () => toggleMode() });
+const hud = createHud({ site, progress, audio, themes, onToggleView: () => toggleMode() });
 
 const boot = createBoot(document.getElementById('boot'), {
   brand: site.brand,
@@ -59,6 +61,7 @@ function ensureExperience(onProgress = () => {}) {
         quality: initialQuality(caps),
         progress,
         audio,
+        themes,
         hud,
         toasts,
         onProgress,
@@ -112,21 +115,28 @@ function toggleMode() {
   setMode(mode === 'map' ? 'list' : 'map');
 }
 
-// 全局快捷键：L 切换视图，M 音效
+// 配色切换的提示与音效（配色面板打开时不弹提示，面板本身已经标出当前项）
+themes.onChange(() => {
+  audio.play('filter');
+  if (!hud.filterOpen) {
+    const t = themes.theme;
+    toasts.show({ k: 'FILTER', v: `${t.name} · ${t.desc}`, duration: 1800 });
+  }
+});
+
+// 全局快捷键：L 切换视图，M 音效，C 配色（Shift + C 反向）
 window.addEventListener('keydown', (e) => {
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
   if (e.metaKey || e.ctrlKey || e.altKey || html.dataset.mode === 'boot') return;
   if ((e.key === 'l' || e.key === 'L') && caps.webgl2) toggleMode();
-  else if ((e.key === 'm' || e.key === 'M') && mode === 'map') audio.toggle();
+  else if (e.key === 'm' || e.key === 'M') audio.toggle();
+  else if ((e.key === 'c' || e.key === 'C') && mode === 'map' && html.dataset.state !== 'warp') themes.step(e.shiftKey ? -1 : 1);
 });
 
-// 浏览器要求在用户手势中启动音频：若上次开启过音效，第一次交互时恢复
-const unlockAudio = () => {
-  audio.resumeIfEnabled();
-  window.removeEventListener('pointerdown', unlockAudio, true);
-  window.removeEventListener('keydown', unlockAudio, true);
-};
+// 浏览器要求在用户手势中启动音频：上次开启过声音的话，每次点击 / 按键时检查一下，
+// 恢复被挂起的音频（例如切回标签页后），或补上被浏览器拦下的配乐播放
+const unlockAudio = () => audio.resumeIfEnabled();
 window.addEventListener('pointerdown', unlockAudio, true);
 window.addEventListener('keydown', unlockAudio, true);
 

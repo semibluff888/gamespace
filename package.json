@@ -2,7 +2,7 @@
   "name": "gamespace",
   "version": "1.0.0",
   "private": true,
-  "description": "SEMIBLUFF 游戏作品星图 —— 一个可探索的深空星图式游戏作品门户",
+  "description": "SEMIBLUFF 游戏星图 —— 一个可探索的深空星图式游戏门户",
   "type": "module",
   "repository": {
     "type": "git",
@@ -12,7 +12,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "preview:lan": "vite build && vite preview --host 0.0.0.0 --port 4173",
     "images": "node scripts/optimize-images.mjs",
+    "bgm": "node scripts/compose-bgm.mjs",
     "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1"
   },
   "dependencies": {

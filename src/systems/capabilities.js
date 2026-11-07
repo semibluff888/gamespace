@@ -33,6 +33,7 @@ export function detectCapabilities() {
     webgl2: params.get('nowebgl') == null && probeWebGL2(),
     forcedMode: params.get('mode'),
     forcedQuality: params.get('quality'),
+    forcedTheme: params.get('theme'),
     debug: params.has('debug'),
   };
 }

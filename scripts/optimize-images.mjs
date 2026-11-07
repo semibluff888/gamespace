@@ -5,6 +5,12 @@
  *
  * 输出：cover.webp（1280×720 封面）、shot-N.webp（最宽 1600）、shot-N.thumb.webp（360×203 缩略图）
  * 新增作品时，在下面的 SOURCES 里加一项即可（路径是你本机上的原图位置）。
+ *
+ * captures/（不进 Git）：从线上版本 / 游戏工程实际渲染出来的截图原图，以及当时用的截图脚本：
+ *   captures/poker/capture-poker.cjs   以游客进入本地运行的线上版本 → 建房、加 AI、自动跟注，连拍一整手牌
+ *   captures/duel/capture_castle.gd    在格斗工程里渲染无限城地图上的必杀瞬间（只读工程，图片写到外部目录）
+ *   captures/duel/capture_title_opening.gd  渲染主界面与无限城开场「第壹回合 → 全集中 → 开战」
+ *   captures/duel/capture_ranged.gd    拉开距离渲染远程放波（水面斩·重 / 空式·重），两名角色完整入镜
  */
 import sharp from 'sharp';
 import { mkdir } from 'node:fs/promises';
@@ -15,25 +21,22 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'public', 'games');
 
-const POKER = 'J:/AntigravityProject/TexasHoldemPoker2';
 const TURBO = 'J:/Project/turbo-legends';
 const RAINROT = 'J:/Project/rainrot';
-const DUEL = 'J:/Project/demon-slayer';
+const CAPTURES = join(ROOT, 'captures');
 
 const SOURCES = {
+  // 线上 v2.1.0（与 GitHub main 一致），默认背景 WSOP1
   poker: {
-    cover: `${POKER}/docs/ui/demo-e-screenshot.png`,
-    shots: [
-      `${POKER}/docs/ui/demo-e-screenshot.png`,
-      `${POKER}/docs/ui/baselines/phase-9/2026-05-01T06-15-32-872Z/online-lobby-1440x900.png`,
-      `${POKER}/docs/ui/baselines/phase-9/2026-05-01T06-15-32-872Z/controls-action-1440x900.png`,
-    ],
+    cover: `${CAPTURES}/poker/table-river.png`,
+    shots: [`${CAPTURES}/poker/table-river.png`, `${CAPTURES}/poker/showdown.png`, `${CAPTURES}/poker/lobby.png`],
   },
+  // 比赛画面放第一张：列表视图显示的封面就是它
   turbo: {
-    cover: `${TURBO}/docs/screenshots/main-menu.png`,
+    cover: `${TURBO}/docs/screenshots/race-start.png`,
     shots: [
-      `${TURBO}/docs/screenshots/main-menu.png`,
       `${TURBO}/docs/screenshots/race-start.png`,
+      `${TURBO}/docs/screenshots/main-menu.png`,
       `${TURBO}/docs/screenshots/multiplayer-lobby.png`,
     ],
   },
@@ -46,13 +49,15 @@ const SOURCES = {
       `${RAINROT}/captures/13_nurse_morgue.png`,
     ],
   },
+  // 炭治郎超必杀「水之呼吸·拾之型 生生流转」→ 远距离放波「壹之型 水面斩·重」（都在无限城）→ 主界面 → 选人界面
+  // （capture_castle.gd 的 t-super-062、capture_ranged.gd 的 t-236C-052：双方相距 310，两名角色都完整入镜）
   duel: {
-    cover: `${DUEL}/artifacts/ui-redesign/fx-tanjiro-super.png`,
+    cover: `${CAPTURES}/duel/tanjiro-super.jpg`,
     shots: [
-      `${DUEL}/artifacts/ui-redesign/fx-tanjiro-super.png`,
-      `${DUEL}/artifacts/ui-redesign/hud-05-max-cutin.png`,
-      `${DUEL}/artifacts/ui-redesign/hud-03-awakening.png`,
-      `${DUEL}/artifacts/select-screen/select-ready.png`,
+      `${CAPTURES}/duel/tanjiro-super.jpg`,
+      `${CAPTURES}/duel/tanjiro-236C.jpg`,
+      `${CAPTURES}/duel/main-menu.jpg`,
+      `${CAPTURES}/duel/select.webp`,
     ],
   },
 };

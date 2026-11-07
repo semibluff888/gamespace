@@ -3,3 +3,5 @@ dist/
 .DS_Store
 *.log
 .vite/
+# 截图原图与截图脚本（本机留存，见 scripts/optimize-images.mjs）
+captures/
