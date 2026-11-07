@@ -22,6 +22,7 @@
  *   stars 远景星空：tints = [颜色, 权重] · twinkle 闪烁幅度（0 不闪）
  *         spikes 亮星衍射芒（0 无 · 4 十字 · 6 六芒）· spikeCount 全天有芒的星数（只给最亮的几颗）
  *   dust  近景星尘颜色 · grain 画面胶片噪点强度（默认 0.4）
+ *   hole  中心黑洞：hot / cool 吸积盘内圈（高温）/ 外圈颜色
  *   ui    列表视图等 2D 界面的背景点缀
  */
 export const THEMES = [
@@ -71,6 +72,7 @@ export const THEMES = [
       spikes: 0,
     },
     dust: '#7fb8ff',
+    hole: { hot: '#e4ecff', cool: '#7b62ff' },
     ui: {
       bg: '#03050b',
       neb: ['rgba(60, 70, 180, 0.16)', 'rgba(140, 40, 120, 0.12)', 'rgba(20, 110, 130, 0.12)'],
@@ -129,6 +131,7 @@ export const THEMES = [
     },
     dust: '#cfd8ea',
     grain: 0.12,
+    hole: { hot: '#fff3df', cool: '#ff8a3c' },
     ui: {
       bg: '#04060c',
       neb: ['rgba(90, 110, 170, 0.12)', 'rgba(200, 170, 120, 0.06)', 'rgba(60, 90, 160, 0.08)'],
@@ -186,6 +189,7 @@ export const THEMES = [
       spikeCount: 10,
     },
     dust: '#8fe3d8',
+    hole: { hot: '#fff0c8', cool: '#e2a032' },
     ui: {
       bg: '#02070a',
       neb: ['rgba(20, 120, 130, 0.14)', 'rgba(170, 120, 30, 0.1)', 'rgba(30, 140, 150, 0.1)'],
@@ -243,6 +247,7 @@ export const THEMES = [
       spikeCount: 12,
     },
     dust: '#ffb27a',
+    hole: { hot: '#ffe5c0', cool: '#ff7a2c' },
     ui: {
       bg: '#04050a',
       neb: ['rgba(40, 70, 130, 0.14)', 'rgba(190, 90, 30, 0.1)', 'rgba(150, 60, 30, 0.08)'],

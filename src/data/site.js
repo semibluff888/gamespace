@@ -53,7 +53,7 @@ export const site = {
   /** 右上角外链 */
   links: [{ id: 'github', label: 'GitHub', href: 'https://github.com/semibluff888' }],
 
-  /** 全部信号解码后，中心信标解锁的「开发者通讯」内容（文案可随意修改） */
+  /** 全部信号解码后，中心黑洞解锁的「开发者通讯」内容（文案可随意修改） */
   developer: {
     title: '开发者通讯',
     titleEn: 'DEV TRANSMISSION',

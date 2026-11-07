@@ -73,7 +73,9 @@ export async function createExperience(opts) {
 
   const stars = createStarfield(quality, stage.pixelRatio, themes.theme);
   const dust = createDust(quality, stage.pixelRatio, themes.theme);
-  const beacon = createBeacon();
+  stage.hole.setSky(nebula.texture);
+  const beacon = createBeacon({ fx: stage.hole });
+  beacon.setTheme(themes.theme);
   scene.add(stars.object, dust.object, beacon.group);
 
   const positions = layoutWorlds(games);
@@ -154,7 +156,7 @@ export async function createExperience(opts) {
 
   /**
    * 自动挑选全景的镜头方位：让离镜头最近的星球和中心正后方的星球都尽量偏离视线，
-   * 避免有星球正好挡在中心信标前面或藏在它身后。作品增减时会自动重新计算。
+   * 避免有星球正好挡在中心黑洞前面或藏在它身后。作品增减时会自动重新计算。
    */
   function bestAzimuth() {
     const angles = worlds.map((w) => Math.atan2(w.position.z, w.position.x));
@@ -246,7 +248,7 @@ export async function createExperience(opts) {
       labels.setContent('core', {
         name: `CORE // LOCKED ${progress.count()}/${progress.total}`,
         sub: '解码全部信号以解锁',
-        aria: `信标核心：已锁定，已解码 ${progress.count()} / ${progress.total} 个信号`,
+        aria: `星系核心：已锁定，已解码 ${progress.count()} / ${progress.total} 个信号`,
       });
     }
   }
@@ -257,6 +259,7 @@ export async function createExperience(opts) {
   });
   labels.add({ id: 'core', kind: 'core', code: 'CORE', accent: '#6ef2ff' });
   beacon.setUnlocked(progress.allDecoded(), false);
+  beacon.setProgress(progress.count() / progress.total, false);
   refreshCoreLabel();
 
   // ---------- 解码 ----------
@@ -272,6 +275,7 @@ export async function createExperience(opts) {
     audio.play('decode');
     hud.setDecoded(progress.count(), { bump: true });
     toasts.show({ k: 'SIGNAL DECODED', v: `${w.game.title} · ${w.game.genre}`, tone: 'ok' });
+    beacon.setProgress(progress.count() / progress.total);
     refreshCoreLabel();
     if (progress.allDecoded()) setTimeout(unlockCore, 1100);
   }
@@ -284,7 +288,7 @@ export async function createExperience(opts) {
     audio.play('unlock');
     toasts.show({
       k: 'NEW TRANSMISSION',
-      v: '信标核心收到一条加密通讯 · 已解锁',
+      v: '星系核心收到一条加密通讯 · 已解锁',
       tone: 'gold',
       duration: 5200,
       action: { label: '查看', run: () => select(beacon) },
@@ -305,6 +309,7 @@ export async function createExperience(opts) {
       refreshLabel(w);
     });
     beacon.setUnlocked(false, false);
+    beacon.setProgress(0, false);
     refreshCoreLabel();
     hud.setDecoded(0);
   });
@@ -583,6 +588,7 @@ export async function createExperience(opts) {
     galaxy.setTheme(t);
     stars.setTheme(t);
     dust.setTheme(t);
+    beacon.setTheme(t);
     stage.noise.blendMode.opacity.value = t.grain ?? 0.4;
   }
   stage.noise.blendMode.opacity.value = themes.theme.grain ?? 0.4;
@@ -653,6 +659,7 @@ export async function createExperience(opts) {
     beacon.update(dt, t, camera, { dimOthers });
     const skyK = updateThemeSwap(dt);
     scene.backgroundIntensity = skyK;
+    stage.hole.setState({ skyK });
     stars.update(t, skyK);
     dust.update(dt, t, skyK);
     discDim += ((dimOthers ? 1 : 0) - discDim) * (1 - Math.exp(-dt * 3));
@@ -778,7 +785,7 @@ export async function createExperience(opts) {
           const name = w.encrypted ? '▓▓▓▓▓▓▓▓' : w.decoded ? `${w.game.title}（${w.game.titleEn}）` : '??? 未解码';
           io.print(`  ${sigCode(w.index)}  ${w.id.padEnd(10)} ${st.padEnd(10)} ${name}`, w.decoded ? '' : 't-dim');
         });
-        io.print(`  CORE    core       ${beacon.unlocked ? 'UNLOCKED' : 'LOCKED  '}   信标核心`, 't-dim');
+        io.print(`  CORE    core       ${beacon.unlocked ? 'UNLOCKED' : 'LOCKED  '}   星系核心（黑洞）`, 't-dim');
       },
     },
     goto: {
@@ -821,7 +828,7 @@ export async function createExperience(opts) {
           io.print(`  ${sigCode(w.index)}  强度 ${String(strength).padStart(3)}%  方位 ${az.toFixed(1).padStart(5)}°  ${w.decoded ? 'DECODED' : w.encrypted ? 'ENCRYPTED' : 'UNKNOWN'}`);
         });
         io.print(
-          progress.allDecoded() ? '所有信号已解码。信标核心有一条留言（about）。' : '提示：把指针停在信号上片刻即可解码。',
+          progress.allDecoded() ? '所有信号已解码。星系核心有一条留言（about）。' : '提示：把指针停在信号上片刻即可解码。',
           progress.allDecoded() ? 't-gold' : 't-dim',
         );
       },
@@ -1029,7 +1036,7 @@ export async function createExperience(opts) {
 
   return {
     stage,
-    /** 开场：镜头从信标附近拉远到全景 */
+    /** 开场：镜头从中心黑洞附近拉远到全景 */
     reveal({ intro = true } = {}) {
       stage.start(frame);
       const final = defaultPose();

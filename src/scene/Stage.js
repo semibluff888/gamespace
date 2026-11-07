@@ -11,6 +11,7 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { TransitionFx } from './TransitionFx.js';
+import { BlackHoleFx } from './BlackHoleFx.js';
 
 const TIERS = {
   high: { dpr: 2, msaa: 4, ca: true, bloomScale: 1 },
@@ -52,7 +53,12 @@ export class Stage {
     this.fx = new TransitionFx();
     this.ca = new ChromaticAberrationEffect({ offset: new Vector2(0.0007, 0.0005), radialModulation: true, modulationOffset: 0.22 });
 
+    // 中心黑洞：放在辉光之前，吸积盘也会泛光
+    this.hole = new BlackHoleFx(this.camera, { quality });
+    this.passHole = new EffectPass(this.camera, this.hole);
+
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.composer.addPass(this.passHole);
     this.passMain = new EffectPass(this.camera, this.bloom, this.toneMapping, this.vignette, this.noise);
     this.passFx = new EffectPass(this.camera, this.fx);
     this.passCa = new EffectPass(this.camera, this.ca);
@@ -84,6 +90,7 @@ export class Stage {
     this.composer.multisampling = tier.msaa;
     this.bloom.resolution.scale = tier.bloomScale;
     this.passCa.enabled = tier.ca;
+    this.hole.setQuality(quality);
     this.updateChain();
     this.resize();
     if (!silent) this.onQualityChange?.(quality);
