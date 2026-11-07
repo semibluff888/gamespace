@@ -3,7 +3,7 @@
 一个可以「玩」的游戏门户：每款游戏是深空星图里的一颗星球。拖拽环视、悬停扫描解码信号、点击锁定查看档案，按「启动」跃迁进入游戏。全部信号解码后，中心信标会解锁一条「开发者通讯」。
 
 - 技术：Vite + three.js + postprocessing + GSAP，原生 JS，无框架
-- 纯静态站点：构建产物是 `dist/`，部署在自己的 VPS（Nginx + Cloudflare）上，访问地址 `https://games.8201128.xyz`
+- 纯静态站点：构建产物是 `dist/`，部署在自己的 VPS（Nginx + Let's Encrypt）上，访问地址 `https://games.8201128.xyz`
 - 所有资源本地打包，运行时不依赖外部 CDN / Google Fonts
 
 ## 本地运行
@@ -78,9 +78,9 @@ npm run deploy -- -Server <服务器>   # 构建并发布到 VPS（见 DEPLOY.md
 
 ## 部署
 
-网站部署在自己的 VPS 上：Cloudflare 负责 DNS、CDN 和 HTTPS，VPS 上的 Nginx 托管 `dist/` 里的静态文件。完整步骤（Cloudflare 设置、源站证书、Nginx 配置讲解、发布与回滚、常见问题）见 **[DEPLOY.md](DEPLOY.md)**。
+网站部署在自己的 VPS 上：Cloudflare 只负责 DNS 解析（灰色云，访客直连 VPS 的优化线路），VPS 上的 Nginx 托管 `dist/` 里的静态文件，HTTPS 证书来自 Let's Encrypt（acme.sh 自动续期）。完整步骤（DNS 设置、证书申请与续期、Nginx 配置讲解、发布与回滚、常见问题）见 **[DEPLOY.md](DEPLOY.md)**。
 
-- Nginx 站点配置：[`deploy/nginx/games.8201128.xyz.conf`](deploy/nginx/games.8201128.xyz.conf)
+- Nginx 配置：[`deploy/nginx/games.8201128.xyz.conf`](deploy/nginx/games.8201128.xyz.conf)（站点）+ [`deploy/nginx/00-default.conf`](deploy/nginx/00-default.conf)（兜底站点，拦截 IP 直连并提供证书验证路径）
 - 一键发布：`npm run deploy -- -Server <服务器>`，即 [`scripts/deploy.ps1`](scripts/deploy.ps1)：本地构建 → 上传 → 原子切换版本，保留最近 3 个版本可回滚
 - GitHub Actions（[`.github/workflows/ci.yml`](.github/workflows/ci.yml)）只在推送时检查能否构建成功，不负责发布
 
